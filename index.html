@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8"/>
     <link rel="icon" type="image/png" href="/media/favicon.png">
-    <link rel="stylesheet" href="css/main.min.css">
+    <link rel="stylesheet" href="css/main.css">
 
     <title>God's Website — gods.website</title>
 
@@ -99,14 +99,30 @@
         <span id="control-hud-sound-section">
           <div class="control-hud-element control-hud-toggle active" id="sound-toggle">sound</div>
           <div class="control-hud-element control-hud-toggle active" id="instruments-toggle">instruments</div>
-          <div class="control-hud-element control-hud-toggle active" id="percussion-toggle">percussion</div>
+          <div class="control-hud-element control-hud-toggle" id="percussion-toggle">percussion</div>
           <div class="control-hud-element control-hud-toggle active" id="synth-toggle">synth</div>
+          <div class="control-hud-element control-hud-section-divider"></div>
+        </span>
+        <span id="control-hud-throughput-section">
+          <div class="control-hud-element">
+            Tweets per Second:
+            <select id="throughput-select">
+              <option class="throughput-option" value="1">1</option>
+              <option class="throughput-option" value="3">3</option>
+              <option class="throughput-option" value="5" selected>5</option>
+              <option class="throughput-option" value="10">10</option>
+              <option class="throughput-option" value="20">20</option>
+              <option class="throughput-option" value="30">30</option>
+            </select>
+          </div>
         </span>
       </span>
     </div>
 
     <!-- scripts -->
-    <script src="js/build/build.min.js"></script>
+    <script src="js/build/build.js"></script>
+    <!-- <script src="js/build/build.min.js"></script> -->
+
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
       (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),

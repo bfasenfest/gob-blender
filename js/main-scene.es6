@@ -10,7 +10,13 @@ var nlp = require("nlp_compromise");
 import {SheenScene} from './sheen-scene.es6';
 import {WordTracker} from './word-tracker.es6';
 
-var TWEETS_PER_SECOND = 4;
+var TWEETS_PER_SECOND = 5;
+
+var tweetsProcessedThisSecond = 0;
+
+setInterval(function resetThroughput() {
+  tweetsProcessedThisSecond = 0;
+}, 1000);
 
 export class MainScene extends SheenScene {
 
@@ -31,11 +37,12 @@ export class MainScene extends SheenScene {
     this.dataVisible = true;
     this.useMeshImages = true;
     this.meshColorStyle = 'sentiment';
-    this.usePercussion = true;
+    this.usePercussion = false;
     this.useInstruments = true;
     this.useSynth = true;
     this.soundOn = true;
     this.tweetPaused = false;
+    this.tweetsPerSecond = 5;
 
     // mutable key-controlled variables
     this.rotationRadius = 100;
@@ -208,6 +215,17 @@ export class MainScene extends SheenScene {
     setupToggleClickHandler(document.querySelector('#instruments-toggle'), 'useInstruments');
     setupToggleClickHandler(document.querySelector('#percussion-toggle'), 'usePercussion');
     setupToggleClickHandler(document.querySelector('#synth-toggle'), 'useSynth');
+
+    var throughputSelect = document.querySelector('#throughput-select')
+
+    throughputSelect.onchange = () => {
+      this.tweetsPerSecond = document.querySelector('#throughput-select').value;
+      if(this.tweetsPerSecond > 10){
+        this.useMeshImages = false;
+        document.querySelector('#mesh-images-toggle').classList.remove('active')
+      }
+ }
+
   }
 
   setupSkyWithStyle(style) {
@@ -595,6 +613,13 @@ export class MainScene extends SheenScene {
   /// Tweet Handling
 
   handleNewTweet(tweetData) {
+    tweetsProcessedThisSecond += 1;
+    if (tweetsProcessedThisSecond > this.tweetsPerSecond) {
+      return;
+    }
+
+    console.log(tweetsProcessedThisSecond)
+
     setTimeout(() => {
       if (!this.tweetPaused) {
         this.tickerTweetTextElement.innerHTML = urlify(tweetData.tweet.text);
@@ -701,7 +726,7 @@ export class MainScene extends SheenScene {
     this.scene.add(mesh);
     this.tweetMeshes.push(mesh);
 
-    var lifetime = (this.maxMeshCount / TWEETS_PER_SECOND) * 1000 - 500;
+    var lifetime = (this.maxMeshCount / this.tweetsPerSecond) * 1000 - 500;
     setTimeout(() => {
       removeFromArray(this.tweetMeshes, mesh);
 

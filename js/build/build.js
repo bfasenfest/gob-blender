@@ -1,4 +1,192 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+
+},{}],2:[function(require,module,exports){
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+},{}],3:[function(require,module,exports){
 /**
  * Originally by James Baicoianu / http://www.baicoianu.com/
  * Modified by Kevin Roark (porkf.at) to meld with pointerlock controls
@@ -391,7 +579,7 @@ module.exports = function (camera, options) {
 	this.updateRotationVector();
 };
 
-},{"./pointerlocker":2,"three":104}],2:[function(require,module,exports){
+},{"./pointerlocker":4,"three":106}],4:[function(require,module,exports){
 "use strict";
 
 module.exports = function () {
@@ -472,752 +660,7 @@ module.exports = function () {
   }
 };
 
-},{}],3:[function(require,module,exports){
-// ----------------------------------------------------------------------------
-// Buzz, a Javascript HTML5 Audio library
-// v1.1.10 - Built 2015-04-20 13:05
-// Licensed under the MIT license.
-// http://buzz.jaysalvat.com/
-// ----------------------------------------------------------------------------
-// Copyright (C) 2010-2015 Jay Salvat
-// http://jaysalvat.com/
-// ----------------------------------------------------------------------------
-
-"use strict";
-
-(function (context, factory) {
-    "use strict";
-    if (typeof module !== "undefined" && module.exports) {
-        module.exports = factory();
-    } else if (typeof define === "function" && define.amd) {
-        define([], factory);
-    } else {
-        context.buzz = factory();
-    }
-})(undefined, function () {
-    "use strict";
-    var AudioContext = window.AudioContext || window.webkitAudioContext;
-    var buzz = {
-        defaults: {
-            autoplay: false,
-            duration: 5000,
-            formats: [],
-            loop: false,
-            placeholder: "--",
-            preload: "metadata",
-            volume: 80,
-            webAudioApi: false,
-            document: window.document
-        },
-        types: {
-            mp3: "audio/mpeg",
-            ogg: "audio/ogg",
-            wav: "audio/wav",
-            aac: "audio/aac",
-            m4a: "audio/x-m4a"
-        },
-        sounds: [],
-        el: document.createElement("audio"),
-        getAudioContext: function getAudioContext() {
-            if (this.audioCtx === undefined) {
-                try {
-                    this.audioCtx = AudioContext ? new AudioContext() : null;
-                } catch (e) {
-                    this.audioCtx = null;
-                }
-            }
-            return this.audioCtx;
-        },
-        sound: function sound(src, options) {
-            options = options || {};
-            var doc = options.document || buzz.defaults.document;
-            var pid = 0,
-                events = [],
-                eventsOnce = {},
-                supported = buzz.isSupported();
-            this.load = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.load();
-                return this;
-            };
-            this.play = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.play();
-                return this;
-            };
-            this.togglePlay = function () {
-                if (!supported) {
-                    return this;
-                }
-                if (this.sound.paused) {
-                    this.sound.play();
-                } else {
-                    this.sound.pause();
-                }
-                return this;
-            };
-            this.pause = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.pause();
-                return this;
-            };
-            this.isPaused = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.paused;
-            };
-            this.stop = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.setTime(0);
-                this.sound.pause();
-                return this;
-            };
-            this.isEnded = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.ended;
-            };
-            this.loop = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.loop = "loop";
-                this.bind("ended.buzzloop", function () {
-                    this.currentTime = 0;
-                    this.play();
-                });
-                return this;
-            };
-            this.unloop = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.removeAttribute("loop");
-                this.unbind("ended.buzzloop");
-                return this;
-            };
-            this.mute = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.muted = true;
-                return this;
-            };
-            this.unmute = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.muted = false;
-                return this;
-            };
-            this.toggleMute = function () {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.muted = !this.sound.muted;
-                return this;
-            };
-            this.isMuted = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.muted;
-            };
-            this.setVolume = function (volume) {
-                if (!supported) {
-                    return this;
-                }
-                if (volume < 0) {
-                    volume = 0;
-                }
-                if (volume > 100) {
-                    volume = 100;
-                }
-                this.volume = volume;
-                this.sound.volume = volume / 100;
-                return this;
-            };
-            this.getVolume = function () {
-                if (!supported) {
-                    return this;
-                }
-                return this.volume;
-            };
-            this.increaseVolume = function (value) {
-                return this.setVolume(this.volume + (value || 1));
-            };
-            this.decreaseVolume = function (value) {
-                return this.setVolume(this.volume - (value || 1));
-            };
-            this.setTime = function (time) {
-                if (!supported) {
-                    return this;
-                }
-                var set = true;
-                this.whenReady(function () {
-                    if (set === true) {
-                        set = false;
-                        this.sound.currentTime = time;
-                    }
-                });
-                return this;
-            };
-            this.getTime = function () {
-                if (!supported) {
-                    return null;
-                }
-                var time = Math.round(this.sound.currentTime * 100) / 100;
-                return isNaN(time) ? buzz.defaults.placeholder : time;
-            };
-            this.setPercent = function (percent) {
-                if (!supported) {
-                    return this;
-                }
-                return this.setTime(buzz.fromPercent(percent, this.sound.duration));
-            };
-            this.getPercent = function () {
-                if (!supported) {
-                    return null;
-                }
-                var percent = Math.round(buzz.toPercent(this.sound.currentTime, this.sound.duration));
-                return isNaN(percent) ? buzz.defaults.placeholder : percent;
-            };
-            this.setSpeed = function (duration) {
-                if (!supported) {
-                    return this;
-                }
-                this.sound.playbackRate = duration;
-                return this;
-            };
-            this.getSpeed = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.playbackRate;
-            };
-            this.getDuration = function () {
-                if (!supported) {
-                    return null;
-                }
-                var duration = Math.round(this.sound.duration * 100) / 100;
-                return isNaN(duration) ? buzz.defaults.placeholder : duration;
-            };
-            this.getPlayed = function () {
-                if (!supported) {
-                    return null;
-                }
-                return timerangeToArray(this.sound.played);
-            };
-            this.getBuffered = function () {
-                if (!supported) {
-                    return null;
-                }
-                return timerangeToArray(this.sound.buffered);
-            };
-            this.getSeekable = function () {
-                if (!supported) {
-                    return null;
-                }
-                return timerangeToArray(this.sound.seekable);
-            };
-            this.getErrorCode = function () {
-                if (supported && this.sound.error) {
-                    return this.sound.error.code;
-                }
-                return 0;
-            };
-            this.getErrorMessage = function () {
-                if (!supported) {
-                    return null;
-                }
-                switch (this.getErrorCode()) {
-                    case 1:
-                        return "MEDIA_ERR_ABORTED";
-
-                    case 2:
-                        return "MEDIA_ERR_NETWORK";
-
-                    case 3:
-                        return "MEDIA_ERR_DECODE";
-
-                    case 4:
-                        return "MEDIA_ERR_SRC_NOT_SUPPORTED";
-
-                    default:
-                        return null;
-                }
-            };
-            this.getStateCode = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.readyState;
-            };
-            this.getStateMessage = function () {
-                if (!supported) {
-                    return null;
-                }
-                switch (this.getStateCode()) {
-                    case 0:
-                        return "HAVE_NOTHING";
-
-                    case 1:
-                        return "HAVE_METADATA";
-
-                    case 2:
-                        return "HAVE_CURRENT_DATA";
-
-                    case 3:
-                        return "HAVE_FUTURE_DATA";
-
-                    case 4:
-                        return "HAVE_ENOUGH_DATA";
-
-                    default:
-                        return null;
-                }
-            };
-            this.getNetworkStateCode = function () {
-                if (!supported) {
-                    return null;
-                }
-                return this.sound.networkState;
-            };
-            this.getNetworkStateMessage = function () {
-                if (!supported) {
-                    return null;
-                }
-                switch (this.getNetworkStateCode()) {
-                    case 0:
-                        return "NETWORK_EMPTY";
-
-                    case 1:
-                        return "NETWORK_IDLE";
-
-                    case 2:
-                        return "NETWORK_LOADING";
-
-                    case 3:
-                        return "NETWORK_NO_SOURCE";
-
-                    default:
-                        return null;
-                }
-            };
-            this.set = function (key, value) {
-                if (!supported) {
-                    return this;
-                }
-                this.sound[key] = value;
-                return this;
-            };
-            this.get = function (key) {
-                if (!supported) {
-                    return null;
-                }
-                return key ? this.sound[key] : this.sound;
-            };
-            this.bind = function (types, func) {
-                if (!supported) {
-                    return this;
-                }
-                types = types.split(" ");
-                var self = this,
-                    efunc = function efunc(e) {
-                    func.call(self, e);
-                };
-                for (var t = 0; t < types.length; t++) {
-                    var type = types[t],
-                        idx = type;
-                    type = idx.split(".")[0];
-                    events.push({
-                        idx: idx,
-                        func: efunc
-                    });
-                    this.sound.addEventListener(type, efunc, true);
-                }
-                return this;
-            };
-            this.unbind = function (types) {
-                if (!supported) {
-                    return this;
-                }
-                types = types.split(" ");
-                for (var t = 0; t < types.length; t++) {
-                    var idx = types[t],
-                        type = idx.split(".")[0];
-                    for (var i = 0; i < events.length; i++) {
-                        var namespace = events[i].idx.split(".");
-                        if (events[i].idx === idx || namespace[1] && namespace[1] === idx.replace(".", "")) {
-                            this.sound.removeEventListener(type, events[i].func, true);
-                            events.splice(i, 1);
-                        }
-                    }
-                }
-                return this;
-            };
-            this.bindOnce = function (type, func) {
-                if (!supported) {
-                    return this;
-                }
-                var self = this;
-                eventsOnce[pid++] = false;
-                this.bind(type + "." + pid, function () {
-                    if (!eventsOnce[pid]) {
-                        eventsOnce[pid] = true;
-                        func.call(self);
-                    }
-                    self.unbind(type + "." + pid);
-                });
-                return this;
-            };
-            this.trigger = function (types, detail) {
-                if (!supported) {
-                    return this;
-                }
-                types = types.split(" ");
-                for (var t = 0; t < types.length; t++) {
-                    var idx = types[t];
-                    for (var i = 0; i < events.length; i++) {
-                        var eventType = events[i].idx.split(".");
-                        if (events[i].idx === idx || eventType[0] && eventType[0] === idx.replace(".", "")) {
-                            var evt = doc.createEvent("HTMLEvents");
-                            evt.initEvent(eventType[0], false, true);
-                            evt.originalEvent = detail;
-                            this.sound.dispatchEvent(evt);
-                        }
-                    }
-                }
-                return this;
-            };
-            this.fadeTo = function (to, duration, callback) {
-                if (!supported) {
-                    return this;
-                }
-                if (duration instanceof Function) {
-                    callback = duration;
-                    duration = buzz.defaults.duration;
-                } else {
-                    duration = duration || buzz.defaults.duration;
-                }
-                var from = this.volume,
-                    delay = duration / Math.abs(from - to),
-                    self = this;
-                this.play();
-                function doFade() {
-                    setTimeout(function () {
-                        if (from < to && self.volume < to) {
-                            self.setVolume(self.volume += 1);
-                            doFade();
-                        } else if (from > to && self.volume > to) {
-                            self.setVolume(self.volume -= 1);
-                            doFade();
-                        } else if (callback instanceof Function) {
-                            callback.apply(self);
-                        }
-                    }, delay);
-                }
-                this.whenReady(function () {
-                    doFade();
-                });
-                return this;
-            };
-            this.fadeIn = function (duration, callback) {
-                if (!supported) {
-                    return this;
-                }
-                return this.setVolume(0).fadeTo(100, duration, callback);
-            };
-            this.fadeOut = function (duration, callback) {
-                if (!supported) {
-                    return this;
-                }
-                return this.fadeTo(0, duration, callback);
-            };
-            this.fadeWith = function (sound, duration) {
-                if (!supported) {
-                    return this;
-                }
-                this.fadeOut(duration, function () {
-                    this.stop();
-                });
-                sound.play().fadeIn(duration);
-                return this;
-            };
-            this.whenReady = function (func) {
-                if (!supported) {
-                    return null;
-                }
-                var self = this;
-                if (this.sound.readyState === 0) {
-                    this.bind("canplay.buzzwhenready", function () {
-                        func.call(self);
-                    });
-                } else {
-                    func.call(self);
-                }
-            };
-            this.addSource = function (src) {
-                var self = this,
-                    source = doc.createElement("source");
-                source.src = src;
-                if (buzz.types[getExt(src)]) {
-                    source.type = buzz.types[getExt(src)];
-                }
-                this.sound.appendChild(source);
-                source.addEventListener("error", function (e) {
-                    self.trigger("sourceerror", e);
-                });
-                return source;
-            };
-            function timerangeToArray(timeRange) {
-                var array = [],
-                    length = timeRange.length - 1;
-                for (var i = 0; i <= length; i++) {
-                    array.push({
-                        start: timeRange.start(i),
-                        end: timeRange.end(i)
-                    });
-                }
-                return array;
-            }
-            function getExt(filename) {
-                return filename.split(".").pop();
-            }
-            if (supported && src) {
-                for (var i in buzz.defaults) {
-                    if (buzz.defaults.hasOwnProperty(i)) {
-                        if (options[i] === undefined) {
-                            options[i] = buzz.defaults[i];
-                        }
-                    }
-                }
-                this.sound = doc.createElement("audio");
-                if (options.webAudioApi) {
-                    var audioCtx = buzz.getAudioContext();
-                    if (audioCtx) {
-                        this.source = audioCtx.createMediaElementSource(this.sound);
-                        this.source.connect(audioCtx.destination);
-                    }
-                }
-                if (src instanceof Array) {
-                    for (var j in src) {
-                        if (src.hasOwnProperty(j)) {
-                            this.addSource(src[j]);
-                        }
-                    }
-                } else if (options.formats.length) {
-                    for (var k in options.formats) {
-                        if (options.formats.hasOwnProperty(k)) {
-                            this.addSource(src + "." + options.formats[k]);
-                        }
-                    }
-                } else {
-                    this.addSource(src);
-                }
-                if (options.loop) {
-                    this.loop();
-                }
-                if (options.autoplay) {
-                    this.sound.autoplay = "autoplay";
-                }
-                if (options.preload === true) {
-                    this.sound.preload = "auto";
-                } else if (options.preload === false) {
-                    this.sound.preload = "none";
-                } else {
-                    this.sound.preload = options.preload;
-                }
-                this.setVolume(options.volume);
-                buzz.sounds.push(this);
-            }
-        },
-        group: function group(sounds) {
-            sounds = argsToArray(sounds, arguments);
-            this.getSounds = function () {
-                return sounds;
-            };
-            this.add = function (soundArray) {
-                soundArray = argsToArray(soundArray, arguments);
-                for (var a = 0; a < soundArray.length; a++) {
-                    sounds.push(soundArray[a]);
-                }
-            };
-            this.remove = function (soundArray) {
-                soundArray = argsToArray(soundArray, arguments);
-                for (var a = 0; a < soundArray.length; a++) {
-                    for (var i = 0; i < sounds.length; i++) {
-                        if (sounds[i] === soundArray[a]) {
-                            sounds.splice(i, 1);
-                            break;
-                        }
-                    }
-                }
-            };
-            this.load = function () {
-                fn("load");
-                return this;
-            };
-            this.play = function () {
-                fn("play");
-                return this;
-            };
-            this.togglePlay = function () {
-                fn("togglePlay");
-                return this;
-            };
-            this.pause = function (time) {
-                fn("pause", time);
-                return this;
-            };
-            this.stop = function () {
-                fn("stop");
-                return this;
-            };
-            this.mute = function () {
-                fn("mute");
-                return this;
-            };
-            this.unmute = function () {
-                fn("unmute");
-                return this;
-            };
-            this.toggleMute = function () {
-                fn("toggleMute");
-                return this;
-            };
-            this.setVolume = function (volume) {
-                fn("setVolume", volume);
-                return this;
-            };
-            this.increaseVolume = function (value) {
-                fn("increaseVolume", value);
-                return this;
-            };
-            this.decreaseVolume = function (value) {
-                fn("decreaseVolume", value);
-                return this;
-            };
-            this.loop = function () {
-                fn("loop");
-                return this;
-            };
-            this.unloop = function () {
-                fn("unloop");
-                return this;
-            };
-            this.setSpeed = function (speed) {
-                fn("setSpeed", speed);
-                return this;
-            };
-            this.setTime = function (time) {
-                fn("setTime", time);
-                return this;
-            };
-            this.set = function (key, value) {
-                fn("set", key, value);
-                return this;
-            };
-            this.bind = function (type, func) {
-                fn("bind", type, func);
-                return this;
-            };
-            this.unbind = function (type) {
-                fn("unbind", type);
-                return this;
-            };
-            this.bindOnce = function (type, func) {
-                fn("bindOnce", type, func);
-                return this;
-            };
-            this.trigger = function (type) {
-                fn("trigger", type);
-                return this;
-            };
-            this.fade = function (from, to, duration, callback) {
-                fn("fade", from, to, duration, callback);
-                return this;
-            };
-            this.fadeIn = function (duration, callback) {
-                fn("fadeIn", duration, callback);
-                return this;
-            };
-            this.fadeOut = function (duration, callback) {
-                fn("fadeOut", duration, callback);
-                return this;
-            };
-            function fn() {
-                var args = argsToArray(null, arguments),
-                    func = args.shift();
-                for (var i = 0; i < sounds.length; i++) {
-                    sounds[i][func].apply(sounds[i], args);
-                }
-            }
-            function argsToArray(array, args) {
-                return array instanceof Array ? array : Array.prototype.slice.call(args);
-            }
-        },
-        all: function all() {
-            return new buzz.group(buzz.sounds);
-        },
-        isSupported: function isSupported() {
-            return !!buzz.el.canPlayType;
-        },
-        isOGGSupported: function isOGGSupported() {
-            return !!buzz.el.canPlayType && buzz.el.canPlayType("audio/ogg; codecs=\"vorbis\"");
-        },
-        isWAVSupported: function isWAVSupported() {
-            return !!buzz.el.canPlayType && buzz.el.canPlayType("audio/wav; codecs=\"1\"");
-        },
-        isMP3Supported: function isMP3Supported() {
-            return !!buzz.el.canPlayType && buzz.el.canPlayType("audio/mpeg;");
-        },
-        isAACSupported: function isAACSupported() {
-            return !!buzz.el.canPlayType && (buzz.el.canPlayType("audio/x-m4a;") || buzz.el.canPlayType("audio/aac;"));
-        },
-        toTimer: function toTimer(time, withHours) {
-            var h, m, s;
-            h = Math.floor(time / 3600);
-            h = isNaN(h) ? "--" : h >= 10 ? h : "0" + h;
-            m = withHours ? Math.floor(time / 60 % 60) : Math.floor(time / 60);
-            m = isNaN(m) ? "--" : m >= 10 ? m : "0" + m;
-            s = Math.floor(time % 60);
-            s = isNaN(s) ? "--" : s >= 10 ? s : "0" + s;
-            return withHours ? h + ":" + m + ":" + s : m + ":" + s;
-        },
-        fromTimer: function fromTimer(time) {
-            var splits = time.toString().split(":");
-            if (splits && splits.length === 3) {
-                time = parseInt(splits[0], 10) * 3600 + parseInt(splits[1], 10) * 60 + parseInt(splits[2], 10);
-            }
-            if (splits && splits.length === 2) {
-                time = parseInt(splits[0], 10) * 60 + parseInt(splits[1], 10);
-            }
-            return time;
-        },
-        toPercent: function toPercent(value, total, decimal) {
-            var r = Math.pow(10, decimal || 0);
-            return Math.round(value * 100 / total * r) / r;
-        },
-        fromPercent: function fromPercent(percent, total, decimal) {
-            var r = Math.pow(10, decimal || 0);
-            return Math.round(total / 100 * percent * r) / r;
-        }
-    };
-    return buzz;
-});
-
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 "use strict";
 
 var THREE = require("three");
@@ -2538,7 +1981,7 @@ module.exports = (function () {
 	return Physijs;
 })();
 
-},{"three":104}],5:[function(require,module,exports){
+},{"three":106}],6:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -2554,7 +1997,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 
 var THREE = require("three");
-var buzz = require("./lib/buzz");
+var buzz = require("buzz");
 var TWEEN = require("tween.js");
 var io = require("socket.io-client");
 var kt = require("kutility");
@@ -2565,7 +2008,13 @@ var SheenScene = require("./sheen-scene.es6").SheenScene;
 
 var WordTracker = require("./word-tracker.es6").WordTracker;
 
-var TWEETS_PER_SECOND = 4;
+var TWEETS_PER_SECOND = 5;
+
+var tweetsProcessedThisSecond = 0;
+
+setInterval(function resetThroughput() {
+  tweetsProcessedThisSecond = 0;
+}, 1000);
 
 var MainScene = exports.MainScene = (function (_SheenScene) {
 
@@ -2588,11 +2037,12 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
     this.dataVisible = true;
     this.useMeshImages = true;
     this.meshColorStyle = "sentiment";
-    this.usePercussion = true;
+    this.usePercussion = false;
     this.useInstruments = true;
     this.useSynth = true;
     this.soundOn = true;
     this.tweetPaused = false;
+    this.tweetsPerSecond = 5;
 
     // mutable key-controlled variables
     this.rotationRadius = 100;
@@ -2648,6 +2098,9 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
 
         this.socket = io("185.21.216.190:6001");
         this.socket.on("fresh-tweet", this.handleNewTweet.bind(this));
+        if (this.sounds.background1loud.isPaused()) {
+          this.sounds.background1loud.loop().play();
+        }
       }
     },
     updateForUseMeshes: {
@@ -2761,6 +2214,16 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
         setupToggleClickHandler(document.querySelector("#instruments-toggle"), "useInstruments");
         setupToggleClickHandler(document.querySelector("#percussion-toggle"), "usePercussion");
         setupToggleClickHandler(document.querySelector("#synth-toggle"), "useSynth");
+
+        var throughputSelect = document.querySelector("#throughput-select");
+
+        throughputSelect.onchange = function () {
+          _this.tweetsPerSecond = document.querySelector("#throughput-select").value;
+          if (_this.tweetsPerSecond > 10) {
+            _this.useMeshImages = false;
+            document.querySelector("#mesh-images-toggle").classList.remove("active");
+          }
+        };
       }
     },
     setupSkyWithStyle: {
@@ -2868,6 +2331,13 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
 
         this.makeHoldNotes(10000);
         this.makeHoldNotes(20000);
+
+        setTimeout(function () {
+          console.log("Checking background sound...");
+          if (_this.sounds.background1loud.isPaused()) {
+            _this.sounds.background1loud.loop().play();
+          }
+        }, 5000);
       }
     },
     enter: {
@@ -2898,7 +2368,6 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
     update: {
       value: function update(dt) {
         _get(Object.getPrototypeOf(MainScene.prototype), "update", this).call(this, dt);
-
         if (this.rotateCamera) {
           this.cameraRotationAngle += this.cameraRotationIncrement; //0.002;
         }
@@ -3166,6 +2635,13 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
       value: function handleNewTweet(tweetData) {
         var _this = this;
 
+        tweetsProcessedThisSecond += 1;
+        if (tweetsProcessedThisSecond > this.tweetsPerSecond) {
+          return;
+        }
+
+        console.log(tweetsProcessedThisSecond);
+
         setTimeout(function () {
           if (!_this.tweetPaused) {
             _this.tickerTweetTextElement.innerHTML = urlify(tweetData.tweet.text);
@@ -3275,7 +2751,7 @@ var MainScene = exports.MainScene = (function (_SheenScene) {
         this.scene.add(mesh);
         this.tweetMeshes.push(mesh);
 
-        var lifetime = this.maxMeshCount / TWEETS_PER_SECOND * 1000 - 500;
+        var lifetime = this.maxMeshCount / this.tweetsPerSecond * 1000 - 500;
         setTimeout(function () {
           removeFromArray(_this.tweetMeshes, mesh);
 
@@ -3573,7 +3049,7 @@ function removeClass(selector, name) {
   }
 }
 
-},{"./lib/buzz":3,"./sheen-scene.es6":7,"./word-tracker.es6":9,"kutility":39,"nlp_compromise":41,"socket.io-client":92,"three":104,"tone":106,"tween.js":107}],6:[function(require,module,exports){
+},{"./sheen-scene.es6":8,"./word-tracker.es6":10,"buzz":16,"kutility":41,"nlp_compromise":43,"socket.io-client":94,"three":106,"tone":108,"tween.js":109}],7:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -3812,7 +3288,7 @@ $(function () {
   sheen.activate();
 });
 
-},{"./controls/fly-controls":1,"./lib/physi.js":4,"./main-scene.es6":5,"./three-boiler.es6":8,"jquery":37,"three":104,"tween.js":107}],7:[function(require,module,exports){
+},{"./controls/fly-controls":3,"./lib/physi.js":5,"./main-scene.es6":6,"./three-boiler.es6":9,"jquery":39,"three":106,"tween.js":109}],8:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -4008,7 +3484,7 @@ var SheenScene = exports.SheenScene = (function () {
   return SheenScene;
 })();
 
-},{"jquery":37,"three":104}],8:[function(require,module,exports){
+},{"jquery":39,"three":106}],9:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -4196,7 +3672,7 @@ THREE.typeface_js = window._typeface_js;
 
 // lol
 
-},{"jquery":37,"three":104}],9:[function(require,module,exports){
+},{"jquery":39,"three":106}],10:[function(require,module,exports){
 "use strict";
 
 var _createClass = (function () { function defineProperties(target, props) { for (var key in props) { var prop = props[key]; prop.configurable = true; if (prop.value) prop.writable = true; } Object.defineProperties(target, props); } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -4266,7 +3742,7 @@ var WordTracker = exports.WordTracker = (function () {
   return WordTracker;
 })();
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -4296,7 +3772,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -4327,7 +3803,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -4414,7 +3890,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -4483,7 +3959,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -4583,7 +4059,743 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
+ // ----------------------------------------------------------------------------
+ // Buzz, a Javascript HTML5 Audio library
+ // v1.2.1 - Built 2018-05-10 10:14
+ // Licensed under the MIT license.
+ // http://buzz.jaysalvat.com/
+ // ----------------------------------------------------------------------------
+ // Copyright (C) 2010-2018 Jay Salvat
+ // http://jaysalvat.com/
+ // ----------------------------------------------------------------------------
+
+(function(context, factory) {
+    "use strict";
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = factory();
+    } else if (typeof define === "function" && define.amd) {
+        define([], factory);
+    } else {
+        context.buzz = factory();
+    }
+})(this, function() {
+    "use strict";
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    var buzz = {
+        defaults: {
+            autoplay: false,
+            crossOrigin: null,
+            duration: 5e3,
+            formats: [],
+            loop: false,
+            placeholder: "--",
+            preload: "metadata",
+            volume: 80,
+            webAudioApi: false,
+            document: window.document
+        },
+        types: {
+            mp3: "audio/mpeg",
+            ogg: "audio/ogg",
+            wav: "audio/wav",
+            aac: "audio/aac",
+            m4a: "audio/x-m4a"
+        },
+        sounds: [],
+        el: document.createElement("audio"),
+        getAudioContext: function() {
+            if (this.audioCtx === undefined) {
+                try {
+                    this.audioCtx = AudioContext ? new AudioContext() : null;
+                } catch (e) {
+                    this.audioCtx = null;
+                }
+            }
+            return this.audioCtx;
+        },
+        sound: function(src, options) {
+            options = options || {};
+            var doc = options.document || buzz.defaults.document;
+            var pid = 0, events = [], eventsOnce = {}, supported = buzz.isSupported();
+            this.load = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.load();
+                return this;
+            };
+            this.play = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.play().catch(function() {});
+                return this;
+            };
+            this.togglePlay = function() {
+                if (!supported) {
+                    return this;
+                }
+                if (this.sound.paused) {
+                    this.sound.play().catch(function() {});
+                } else {
+                    this.sound.pause();
+                }
+                return this;
+            };
+            this.pause = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.pause();
+                return this;
+            };
+            this.isPaused = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.paused;
+            };
+            this.stop = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.pause();
+                this.setTime(0);
+                return this;
+            };
+            this.isEnded = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.ended;
+            };
+            this.loop = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.loop = "loop";
+                this.bind("ended.buzzloop", function() {
+                    this.currentTime = 0;
+                    this.play();
+                });
+                return this;
+            };
+            this.unloop = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.removeAttribute("loop");
+                this.unbind("ended.buzzloop");
+                return this;
+            };
+            this.mute = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.muted = true;
+                return this;
+            };
+            this.unmute = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.muted = false;
+                return this;
+            };
+            this.toggleMute = function() {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.muted = !this.sound.muted;
+                return this;
+            };
+            this.isMuted = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.muted;
+            };
+            this.setVolume = function(volume) {
+                if (!supported) {
+                    return this;
+                }
+                if (volume < 0) {
+                    volume = 0;
+                }
+                if (volume > 100) {
+                    volume = 100;
+                }
+                this.volume = volume;
+                this.sound.volume = volume / 100;
+                return this;
+            };
+            this.getVolume = function() {
+                if (!supported) {
+                    return this;
+                }
+                return this.volume;
+            };
+            this.increaseVolume = function(value) {
+                return this.setVolume(this.volume + (value || 1));
+            };
+            this.decreaseVolume = function(value) {
+                return this.setVolume(this.volume - (value || 1));
+            };
+            this.setTime = function(time) {
+                if (!supported) {
+                    return this;
+                }
+                var set = true;
+                this.whenReady(function() {
+                    if (set === true) {
+                        set = false;
+                        this.sound.currentTime = time;
+                    }
+                });
+                return this;
+            };
+            this.getTime = function() {
+                if (!supported) {
+                    return null;
+                }
+                var time = Math.round(this.sound.currentTime * 100) / 100;
+                return isNaN(time) ? buzz.defaults.placeholder : time;
+            };
+            this.setPercent = function(percent) {
+                if (!supported) {
+                    return this;
+                }
+                return this.setTime(buzz.fromPercent(percent, this.sound.duration));
+            };
+            this.getPercent = function() {
+                if (!supported) {
+                    return null;
+                }
+                var percent = Math.round(buzz.toPercent(this.sound.currentTime, this.sound.duration));
+                return isNaN(percent) ? buzz.defaults.placeholder : percent;
+            };
+            this.setSpeed = function(duration) {
+                if (!supported) {
+                    return this;
+                }
+                this.sound.playbackRate = duration;
+                return this;
+            };
+            this.getSpeed = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.playbackRate;
+            };
+            this.getDuration = function() {
+                if (!supported) {
+                    return null;
+                }
+                var duration = Math.round(this.sound.duration * 100) / 100;
+                return isNaN(duration) ? buzz.defaults.placeholder : duration;
+            };
+            this.getPlayed = function() {
+                if (!supported) {
+                    return null;
+                }
+                return timerangeToArray(this.sound.played);
+            };
+            this.getBuffered = function() {
+                if (!supported) {
+                    return null;
+                }
+                return timerangeToArray(this.sound.buffered);
+            };
+            this.getSeekable = function() {
+                if (!supported) {
+                    return null;
+                }
+                return timerangeToArray(this.sound.seekable);
+            };
+            this.getErrorCode = function() {
+                if (supported && this.sound.error) {
+                    return this.sound.error.code;
+                }
+                return 0;
+            };
+            this.getErrorMessage = function() {
+                if (!supported) {
+                    return null;
+                }
+                switch (this.getErrorCode()) {
+                  case 1:
+                    return "MEDIA_ERR_ABORTED";
+
+                  case 2:
+                    return "MEDIA_ERR_NETWORK";
+
+                  case 3:
+                    return "MEDIA_ERR_DECODE";
+
+                  case 4:
+                    return "MEDIA_ERR_SRC_NOT_SUPPORTED";
+
+                  default:
+                    return null;
+                }
+            };
+            this.getStateCode = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.readyState;
+            };
+            this.getStateMessage = function() {
+                if (!supported) {
+                    return null;
+                }
+                switch (this.getStateCode()) {
+                  case 0:
+                    return "HAVE_NOTHING";
+
+                  case 1:
+                    return "HAVE_METADATA";
+
+                  case 2:
+                    return "HAVE_CURRENT_DATA";
+
+                  case 3:
+                    return "HAVE_FUTURE_DATA";
+
+                  case 4:
+                    return "HAVE_ENOUGH_DATA";
+
+                  default:
+                    return null;
+                }
+            };
+            this.getNetworkStateCode = function() {
+                if (!supported) {
+                    return null;
+                }
+                return this.sound.networkState;
+            };
+            this.getNetworkStateMessage = function() {
+                if (!supported) {
+                    return null;
+                }
+                switch (this.getNetworkStateCode()) {
+                  case 0:
+                    return "NETWORK_EMPTY";
+
+                  case 1:
+                    return "NETWORK_IDLE";
+
+                  case 2:
+                    return "NETWORK_LOADING";
+
+                  case 3:
+                    return "NETWORK_NO_SOURCE";
+
+                  default:
+                    return null;
+                }
+            };
+            this.set = function(key, value) {
+                if (!supported) {
+                    return this;
+                }
+                this.sound[key] = value;
+                return this;
+            };
+            this.get = function(key) {
+                if (!supported) {
+                    return null;
+                }
+                return key ? this.sound[key] : this.sound;
+            };
+            this.bind = function(types, func) {
+                if (!supported) {
+                    return this;
+                }
+                types = types.split(" ");
+                var self = this, efunc = function(e) {
+                    func.call(self, e);
+                };
+                for (var t = 0; t < types.length; t++) {
+                    var type = types[t], idx = type;
+                    type = idx.split(".")[0];
+                    events.push({
+                        idx: idx,
+                        func: efunc
+                    });
+                    this.sound.addEventListener(type, efunc, true);
+                }
+                return this;
+            };
+            this.unbind = function(types) {
+                if (!supported) {
+                    return this;
+                }
+                types = types.split(" ");
+                for (var t = 0; t < types.length; t++) {
+                    var idx = types[t], type = idx.split(".")[0];
+                    for (var i = 0; i < events.length; i++) {
+                        var namespace = events[i].idx.split(".");
+                        if (events[i].idx === idx || namespace[1] && namespace[1] === idx.replace(".", "")) {
+                            this.sound.removeEventListener(type, events[i].func, true);
+                            events.splice(i, 1);
+                        }
+                    }
+                }
+                return this;
+            };
+            this.bindOnce = function(type, func) {
+                if (!supported) {
+                    return this;
+                }
+                var self = this;
+                eventsOnce[pid++] = false;
+                this.bind(type + "." + pid, function() {
+                    if (!eventsOnce[pid]) {
+                        eventsOnce[pid] = true;
+                        func.call(self);
+                    }
+                    self.unbind(type + "." + pid);
+                });
+                return this;
+            };
+            this.trigger = function(types, detail) {
+                if (!supported) {
+                    return this;
+                }
+                types = types.split(" ");
+                for (var t = 0; t < types.length; t++) {
+                    var idx = types[t];
+                    for (var i = 0; i < events.length; i++) {
+                        var eventType = events[i].idx.split(".");
+                        if (events[i].idx === idx || eventType[0] && eventType[0] === idx.replace(".", "")) {
+                            var evt = doc.createEvent("HTMLEvents");
+                            evt.initEvent(eventType[0], false, true);
+                            evt.originalEvent = detail;
+                            this.sound.dispatchEvent(evt);
+                        }
+                    }
+                }
+                return this;
+            };
+            this.fadeTo = function(to, duration, callback) {
+                if (!supported) {
+                    return this;
+                }
+                if (duration instanceof Function) {
+                    callback = duration;
+                    duration = buzz.defaults.duration;
+                } else {
+                    duration = duration || buzz.defaults.duration;
+                }
+                var from = this.volume, delay = duration / Math.abs(from - to), self = this, fadeToTimeout;
+                this.play();
+                function doFade() {
+                    clearTimeout(fadeToTimeout);
+                    fadeToTimeout = setTimeout(function() {
+                        if (from < to && self.volume < to) {
+                            self.setVolume(self.volume += 1);
+                            doFade();
+                        } else if (from > to && self.volume > to) {
+                            self.setVolume(self.volume -= 1);
+                            doFade();
+                        } else if (callback instanceof Function) {
+                            callback.apply(self);
+                        }
+                    }, delay);
+                }
+                this.whenReady(function() {
+                    doFade();
+                });
+                return this;
+            };
+            this.fadeIn = function(duration, callback) {
+                if (!supported) {
+                    return this;
+                }
+                return this.setVolume(0).fadeTo(100, duration, callback);
+            };
+            this.fadeOut = function(duration, callback) {
+                if (!supported) {
+                    return this;
+                }
+                return this.fadeTo(0, duration, callback);
+            };
+            this.fadeWith = function(sound, duration) {
+                if (!supported) {
+                    return this;
+                }
+                this.fadeOut(duration, function() {
+                    this.stop();
+                });
+                sound.play().fadeIn(duration);
+                return this;
+            };
+            this.whenReady = function(func) {
+                if (!supported) {
+                    return null;
+                }
+                var self = this;
+                if (this.sound.readyState === 0) {
+                    this.bind("canplay.buzzwhenready", function() {
+                        func.call(self);
+                    });
+                } else {
+                    func.call(self);
+                }
+            };
+            this.addSource = function(src) {
+                var self = this, source = doc.createElement("source");
+                source.src = src;
+                if (buzz.types[getExt(src)]) {
+                    source.type = buzz.types[getExt(src)];
+                }
+                this.sound.appendChild(source);
+                source.addEventListener("error", function(e) {
+                    self.trigger("sourceerror", e);
+                });
+                return source;
+            };
+            function timerangeToArray(timeRange) {
+                var array = [], length = timeRange.length - 1;
+                for (var i = 0; i <= length; i++) {
+                    array.push({
+                        start: timeRange.start(i),
+                        end: timeRange.end(i)
+                    });
+                }
+                return array;
+            }
+            function getExt(filename) {
+                return filename.split(".").pop();
+            }
+            if (supported && src) {
+                for (var i in buzz.defaults) {
+                    if (buzz.defaults.hasOwnProperty(i)) {
+                        if (options[i] === undefined) {
+                            options[i] = buzz.defaults[i];
+                        }
+                    }
+                }
+                this.sound = doc.createElement("audio");
+                if (options.crossOrigin !== null) {
+                    this.sound.crossOrigin = options.crossOrigin;
+                }
+                if (options.webAudioApi) {
+                    var audioCtx = buzz.getAudioContext();
+                    if (audioCtx) {
+                        this.source = audioCtx.createMediaElementSource(this.sound);
+                        this.source.connect(audioCtx.destination);
+                    }
+                }
+                if (src instanceof Array) {
+                    for (var j in src) {
+                        if (src.hasOwnProperty(j)) {
+                            this.addSource(src[j]);
+                        }
+                    }
+                } else if (options.formats.length) {
+                    for (var k in options.formats) {
+                        if (options.formats.hasOwnProperty(k)) {
+                            this.addSource(src + "." + options.formats[k]);
+                        }
+                    }
+                } else {
+                    this.addSource(src);
+                }
+                if (options.loop) {
+                    this.loop();
+                }
+                if (options.autoplay) {
+                    this.sound.autoplay = "autoplay";
+                }
+                if (options.preload === true) {
+                    this.sound.preload = "auto";
+                } else if (options.preload === false) {
+                    this.sound.preload = "none";
+                } else {
+                    this.sound.preload = options.preload;
+                }
+                this.setVolume(options.volume);
+                buzz.sounds.push(this);
+            }
+        },
+        group: function(sounds) {
+            sounds = argsToArray(sounds, arguments);
+            this.getSounds = function() {
+                return sounds;
+            };
+            this.add = function(soundArray) {
+                soundArray = argsToArray(soundArray, arguments);
+                for (var a = 0; a < soundArray.length; a++) {
+                    sounds.push(soundArray[a]);
+                }
+            };
+            this.remove = function(soundArray) {
+                soundArray = argsToArray(soundArray, arguments);
+                for (var a = 0; a < soundArray.length; a++) {
+                    for (var i = 0; i < sounds.length; i++) {
+                        if (sounds[i] === soundArray[a]) {
+                            sounds.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            };
+            this.load = function() {
+                fn("load");
+                return this;
+            };
+            this.play = function() {
+                fn("play");
+                return this;
+            };
+            this.togglePlay = function() {
+                fn("togglePlay");
+                return this;
+            };
+            this.pause = function(time) {
+                fn("pause", time);
+                return this;
+            };
+            this.stop = function() {
+                fn("stop");
+                return this;
+            };
+            this.mute = function() {
+                fn("mute");
+                return this;
+            };
+            this.unmute = function() {
+                fn("unmute");
+                return this;
+            };
+            this.toggleMute = function() {
+                fn("toggleMute");
+                return this;
+            };
+            this.setVolume = function(volume) {
+                fn("setVolume", volume);
+                return this;
+            };
+            this.increaseVolume = function(value) {
+                fn("increaseVolume", value);
+                return this;
+            };
+            this.decreaseVolume = function(value) {
+                fn("decreaseVolume", value);
+                return this;
+            };
+            this.loop = function() {
+                fn("loop");
+                return this;
+            };
+            this.unloop = function() {
+                fn("unloop");
+                return this;
+            };
+            this.setSpeed = function(speed) {
+                fn("setSpeed", speed);
+                return this;
+            };
+            this.setTime = function(time) {
+                fn("setTime", time);
+                return this;
+            };
+            this.set = function(key, value) {
+                fn("set", key, value);
+                return this;
+            };
+            this.bind = function(type, func) {
+                fn("bind", type, func);
+                return this;
+            };
+            this.unbind = function(type) {
+                fn("unbind", type);
+                return this;
+            };
+            this.bindOnce = function(type, func) {
+                fn("bindOnce", type, func);
+                return this;
+            };
+            this.trigger = function(type) {
+                fn("trigger", type);
+                return this;
+            };
+            this.fade = function(from, to, duration, callback) {
+                fn("fade", from, to, duration, callback);
+                return this;
+            };
+            this.fadeIn = function(duration, callback) {
+                fn("fadeIn", duration, callback);
+                return this;
+            };
+            this.fadeOut = function(duration, callback) {
+                fn("fadeOut", duration, callback);
+                return this;
+            };
+            function fn() {
+                var args = argsToArray(null, arguments), func = args.shift();
+                for (var i = 0; i < sounds.length; i++) {
+                    sounds[i][func].apply(sounds[i], args);
+                }
+            }
+            function argsToArray(array, args) {
+                return array instanceof Array ? array : Array.prototype.slice.call(args);
+            }
+        },
+        all: function() {
+            return new buzz.group(buzz.sounds);
+        },
+        isSupported: function() {
+            return !!buzz.el.canPlayType;
+        },
+        isOGGSupported: function() {
+            return !!buzz.el.canPlayType && buzz.el.canPlayType('audio/ogg; codecs="vorbis"');
+        },
+        isWAVSupported: function() {
+            return !!buzz.el.canPlayType && buzz.el.canPlayType('audio/wav; codecs="1"');
+        },
+        isMP3Supported: function() {
+            return !!buzz.el.canPlayType && buzz.el.canPlayType("audio/mpeg;");
+        },
+        isAACSupported: function() {
+            return !!buzz.el.canPlayType && (buzz.el.canPlayType("audio/x-m4a;") || buzz.el.canPlayType("audio/aac;"));
+        },
+        toTimer: function(time, withHours) {
+            var h, m, s;
+            h = Math.floor(time / 3600);
+            h = isNaN(h) ? "--" : h >= 10 ? h : "0" + h;
+            m = withHours ? Math.floor(time / 60 % 60) : Math.floor(time / 60);
+            m = isNaN(m) ? "--" : m >= 10 ? m : "0" + m;
+            s = Math.floor(time % 60);
+            s = isNaN(s) ? "--" : s >= 10 ? s : "0" + s;
+            return withHours ? h + ":" + m + ":" + s : m + ":" + s;
+        },
+        fromTimer: function(time) {
+            var splits = time.toString().split(":");
+            if (splits && splits.length === 3) {
+                time = parseInt(splits[0], 10) * 3600 + parseInt(splits[1], 10) * 60 + parseInt(splits[2], 10);
+            }
+            if (splits && splits.length === 2) {
+                time = parseInt(splits[0], 10) * 60 + parseInt(splits[1], 10);
+            }
+            return time;
+        },
+        toPercent: function(value, total, decimal) {
+            var r = Math.pow(10, decimal || 0);
+            return Math.round(value * 100 / total * r) / r;
+        },
+        fromPercent: function(percent, total, decimal) {
+            var r = Math.pow(10, decimal || 0);
+            return Math.round(total / 100 * percent * r) / r;
+        }
+    };
+    return buzz;
+});
+},{}],17:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -4608,7 +4820,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],16:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -4774,7 +4986,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -4782,7 +4994,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],18:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 (function (process){
 
 /**
@@ -4963,7 +5175,7 @@ function localstorage(){
 }
 
 }).call(this,require('_process'))
-},{"./debug":19,"_process":111}],19:[function(require,module,exports){
+},{"./debug":21,"_process":2}],21:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -5165,11 +5377,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":40}],20:[function(require,module,exports){
+},{"ms":42}],22:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":21}],21:[function(require,module,exports){
+},{"./lib/index":23}],23:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -5181,7 +5393,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":22,"engine.io-parser":31}],22:[function(require,module,exports){
+},{"./socket":24,"engine.io-parser":33}],24:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -5923,7 +6135,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":23,"./transports/index":24,"component-emitter":30,"debug":18,"engine.io-parser":31,"indexof":35,"parsejson":89,"parseqs":90,"parseuri":91}],23:[function(require,module,exports){
+},{"./transport":25,"./transports/index":26,"component-emitter":32,"debug":20,"engine.io-parser":33,"indexof":37,"parsejson":91,"parseqs":92,"parseuri":93}],25:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -6082,7 +6294,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":30,"engine.io-parser":31}],24:[function(require,module,exports){
+},{"component-emitter":32,"engine.io-parser":33}],26:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -6139,7 +6351,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":25,"./polling-xhr":26,"./websocket":28,"xmlhttprequest-ssl":29}],25:[function(require,module,exports){
+},{"./polling-jsonp":27,"./polling-xhr":28,"./websocket":30,"xmlhttprequest-ssl":31}],27:[function(require,module,exports){
 (function (global){
 
 /**
@@ -6374,7 +6586,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":27,"component-inherit":17}],26:[function(require,module,exports){
+},{"./polling":29,"component-inherit":19}],28:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -6802,7 +7014,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":27,"component-emitter":30,"component-inherit":17,"debug":18,"xmlhttprequest-ssl":29}],27:[function(require,module,exports){
+},{"./polling":29,"component-emitter":32,"component-inherit":19,"debug":20,"xmlhttprequest-ssl":31}],29:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7049,7 +7261,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":23,"component-inherit":17,"debug":18,"engine.io-parser":31,"parseqs":90,"xmlhttprequest-ssl":29,"yeast":109}],28:[function(require,module,exports){
+},{"../transport":25,"component-inherit":19,"debug":20,"engine.io-parser":33,"parseqs":92,"xmlhttprequest-ssl":31,"yeast":111}],30:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -7338,7 +7550,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":23,"component-inherit":17,"debug":18,"engine.io-parser":31,"parseqs":90,"ws":110,"yeast":109}],29:[function(require,module,exports){
+},{"../transport":25,"component-inherit":19,"debug":20,"engine.io-parser":33,"parseqs":92,"ws":1,"yeast":111}],31:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -7379,7 +7591,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":34}],30:[function(require,module,exports){
+},{"has-cors":36}],32:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -7544,7 +7756,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],31:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -8157,7 +8369,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":32,"after":10,"arraybuffer.slice":11,"base64-arraybuffer":13,"blob":14,"has-binary":33,"wtf-8":108}],32:[function(require,module,exports){
+},{"./keys":34,"after":11,"arraybuffer.slice":12,"base64-arraybuffer":14,"blob":15,"has-binary":35,"wtf-8":110}],34:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -8178,7 +8390,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],33:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 (function (global){
 
 /*
@@ -8241,7 +8453,7 @@ function hasBinary(data) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":36}],34:[function(require,module,exports){
+},{"isarray":38}],36:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -8260,7 +8472,7 @@ try {
   module.exports = false;
 }
 
-},{}],35:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 
 var indexOf = [].indexOf;
 
@@ -8271,12 +8483,12 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],36:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],37:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 /*!
  * jQuery JavaScript Library v2.1.3
  * http://jquery.com/
@@ -17483,7 +17695,7 @@ return jQuery;
 
 }));
 
-},{}],38:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 (function (global){
 /*! JSON v3.3.2 | http://bestiejs.github.io/json3 | Copyright 2012-2014, Kit Cambridge | http://kit.mit-license.org */
 ;(function () {
@@ -18389,7 +18601,7 @@ return jQuery;
 }).call(this);
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 
 /* export something */
 module.exports = new Kutility();
@@ -18963,7 +19175,7 @@ Kutility.prototype.blur = function(el, x) {
   this.setFilter(el, cf + f);
 };
 
-},{}],40:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -19114,7 +19326,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's'
 }
 
-},{}],41:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 // nlp_comprimise by @spencermountain  in 2014
 // most files are self-contained modules that optionally export for nodejs
 // this file loads them all together
@@ -19177,7 +19389,7 @@ module.exports = nlp;
 // console.log(nlp.pos("Tony Danza is great. He works in the bank.").sentences[1].tokens[0].analysis.reference_to())
 // console.log(nlp.pos("the FBI was hacked. He took their drugs.").sentences[1].tokens[2].analysis.reference_to())
 
-},{"./src/methods/localization/americanize":57,"./src/methods/localization/britishize":58,"./src/methods/syllables/syllable":59,"./src/methods/tokenization/ngram":60,"./src/methods/tokenization/sentence":61,"./src/methods/tokenization/tokenize":62,"./src/methods/transliteration/unicode_normalisation":63,"./src/parents/parents":75,"./src/pos":85,"./src/spot":88}],42:[function(require,module,exports){
+},{"./src/methods/localization/americanize":59,"./src/methods/localization/britishize":60,"./src/methods/syllables/syllable":61,"./src/methods/tokenization/ngram":62,"./src/methods/tokenization/sentence":63,"./src/methods/tokenization/tokenize":64,"./src/methods/transliteration/unicode_normalisation":65,"./src/parents/parents":77,"./src/pos":87,"./src/spot":90}],44:[function(require,module,exports){
 //the lexicon is a large hash of words and their predicted part-of-speech.
 // it plays a bootstrap-role in pos tagging in this library.
 // to save space, most of the list is derived from conjugation methods,
@@ -19749,7 +19961,7 @@ module.exports = main;
 // console.log(lexicon['loaves']=="NNS")
 // console.log(lexicon['he']=="PRP")
 
-},{"../parents/adjective/conjugate/convertables":64,"../parents/adjective/conjugate/to_adverb":65,"../parents/adjective/conjugate/to_comparative":66,"../parents/adjective/conjugate/to_superlative":68,"../parents/verb/conjugate/conjugate":79,"../parents/verb/conjugate/verb_irregulars":82,"./lexicon/abbreviations":43,"./lexicon/adjectives":44,"./lexicon/demonyms":45,"./lexicon/firstnames":46,"./lexicon/honourifics":47,"./lexicon/irregular_nouns":48,"./lexicon/multiples":49,"./lexicon/phrasal_verbs":50,"./lexicon/uncountables":51,"./lexicon/values":52,"./lexicon/verbs":53}],43:[function(require,module,exports){
+},{"../parents/adjective/conjugate/convertables":66,"../parents/adjective/conjugate/to_adverb":67,"../parents/adjective/conjugate/to_comparative":68,"../parents/adjective/conjugate/to_superlative":70,"../parents/verb/conjugate/conjugate":81,"../parents/verb/conjugate/verb_irregulars":84,"./lexicon/abbreviations":45,"./lexicon/adjectives":46,"./lexicon/demonyms":47,"./lexicon/firstnames":48,"./lexicon/honourifics":49,"./lexicon/irregular_nouns":50,"./lexicon/multiples":51,"./lexicon/phrasal_verbs":52,"./lexicon/uncountables":53,"./lexicon/values":54,"./lexicon/verbs":55}],45:[function(require,module,exports){
 //these are common word shortenings used in the lexicon and sentence segmentation methods
 //there are all nouns, or at the least, belong beside one.
 
@@ -19770,7 +19982,7 @@ main = main.concat(honourifics)
 
 module.exports = main;
 
-},{"./honourifics":47}],44:[function(require,module,exports){
+},{"./honourifics":49}],46:[function(require,module,exports){
 //adjectives that either aren't covered by rules, or have superlative/comparative forms
 //this list is the seed, from which various forms are conjugated
 module.exports= [
@@ -20458,7 +20670,7 @@ module.exports= [
     "less"
   ]
 
-},{}],45:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 //adjectival forms of place names, as adjectives.
 module.exports= [
     "afghan",
@@ -20562,7 +20774,7 @@ module.exports= [
     "californian",
   ]
 
-},{}],46:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 // common first-names in compressed form.
 //from http://www.ssa.gov/oact/babynames/limits.html  and http://www.servicealberta.gov.ab.ca/pdf/vs/2001_Boys.pdf
 //not sure what regional/cultural/demographic bias this has. Probably a lot.
@@ -20886,7 +21098,7 @@ module.exports = main;
 // console.log(firstnames['jan'])
 // console.log(JSON.stringify(Object.keys(firstnames).length, null, 2));
 
-},{}],47:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 //these are common person titles used in the lexicon and sentence segmentation methods
 //they are also used to identify that a noun is a person
   var main = [
@@ -20944,7 +21156,7 @@ module.exports = main;
 
 module.exports = main;
 
-},{}],48:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 //nouns with irregular plural/singular forms
 //used in noun.inflect, and also in the lexicon.
 //compressed with '_' to reduce some redundancy.
@@ -21016,7 +21228,7 @@ var main=[
 
 module.exports = main;
 
-},{}],49:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 //common terms that are multi-word, but one part-of-speech
 //these should not include phrasal verbs, like 'looked out'. These are handled elsewhere.
 module.exports = {
@@ -21093,7 +21305,7 @@ module.exports = {
     "head start":"NN"
   }
 
-},{}],50:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 //phrasal verbs are two words that really mean one verb.
 //'beef up' is one verb, and not some direction of beefing.
 //by @spencermountain, 2015 mit
@@ -21213,7 +21425,7 @@ Object.keys(main).forEach(function (s) {
 module.exports = main;
 // console.log(JSON.stringify(phrasal_verbs, null, 2))
 
-},{"../../parents/verb/conjugate/conjugate":79}],51:[function(require,module,exports){
+},{"../../parents/verb/conjugate/conjugate":81}],53:[function(require,module,exports){
 //common nouns that have no plural form. These are suprisingly rare
 //used in noun.inflect(), and added as nouns in lexicon
 module.exports=[
@@ -21368,7 +21580,7 @@ module.exports=[
     "hertz"
   ]
 
-},{}],52:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 //terms that are "CD", a 'value' term
 module.exports = [
   //numbers
@@ -21441,7 +21653,7 @@ module.exports = [
   return h
 }, {})
 
-},{}],53:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 //most-frequent non-irregular verbs, to be conjugated for the lexicon
 //this list is the seed, from which various forms are conjugated
 module.exports = [
@@ -22007,7 +22219,7 @@ module.exports = [
 
 ]
 
-},{}],54:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 //the parts of speech used by this library. mostly standard, but some changes.
 module.exports = {
   //verbs
@@ -22201,7 +22413,7 @@ module.exports = {
   }
 }
 
-},{}],55:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 // word suffixes with a high pos signal, generated with wordnet
 //by spencer kelly spencermountain@gmail.com  2014
 var data = {
@@ -22798,7 +23010,7 @@ module.exports = Object.keys(data).reduce(function (h, k) {
   return h
 }, {})
 
-},{}],56:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 //regex patterns and parts of speech],
 module.exports= [
   [".[cts]hy$", "JJ"],
@@ -22920,7 +23132,7 @@ module.exports= [
 })
 
 
-},{}],57:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 // convert british spellings into american ones
 // built with patterns+exceptions from https://en.wikipedia.org/wiki/British_spelling
 
@@ -22980,7 +23192,7 @@ module.exports = function (str) {
 // console.log(americanize("synthesise")=="synthesize")
 // console.log(americanize("synthesised")=="synthesized")
 
-},{}],58:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 // convert american spellings into british ones
 // built with patterns+exceptions from https://en.wikipedia.org/wiki/British_spelling
 // (some patterns are only safe to do in one direction)
@@ -23044,7 +23256,7 @@ module.exports = function (str) {
   return str
 }
 
-},{}],59:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 //chop a string into pronounced syllables
 
 module.exports = function (str) {
@@ -23138,7 +23350,7 @@ module.exports = function (str) {
 //broken
 // console.log(syllables("birchtree"))
 
-},{}],60:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 //split a string into all possible parts
 
 module.exports = function (text, options) {
@@ -23200,7 +23412,7 @@ module.exports = function (text, options) {
 //console.log(module.exports("i really think that we all really think it's all good"))
 // console.log(module.exports("i said i rule", {max_size:1})) // word-count
 
-},{}],61:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 //(Rule-based sentence boundary segmentation) - chop given text into its proper sentences.
 // Ignore periods/questions/exclamations used in acronyms/abbreviations/numbers, etc.
 // @spencermountain 2015 MIT
@@ -23251,7 +23463,7 @@ module.exports = function(text) {
 // console.log(sentence_parser("She was dead. He was ill.").length === 2)
 // console.log(sentence_parser("i think it is good ... or else.").length == 1)
 
-},{"../../data/lexicon/abbreviations":43}],62:[function(require,module,exports){
+},{"../../data/lexicon/abbreviations":45}],64:[function(require,module,exports){
 //split a string into 'words' - as intended to be most helpful for this library.
 
 var sentence_parser = require("./sentence")
@@ -23344,7 +23556,7 @@ module.exports = tokenize
 // console.log(tokenize("Joe in Toronto")[0].tokens.length==3)
 // console.log(tokenize("I am mega-rich")[0].tokens.length==3)
 
-},{"../../data/lexicon/multiples":49,"./sentence":61}],63:[function(require,module,exports){
+},{"../../data/lexicon/multiples":51,"./sentence":63}],65:[function(require,module,exports){
 // a hugely-ignorant, and widely subjective transliteration of latin, cryllic, greek unicode characters to english ascii.
 //http://en.wikipedia.org/wiki/List_of_Unicode_characters
 //https://docs.google.com/spreadsheet/ccc?key=0Ah46z755j7cVdFRDM1A2YVpwa1ZYWlpJM2pQZ003M0E
@@ -23444,7 +23656,7 @@ module.exports = {
 //   percentage: 100
 // }))
 
-},{}],64:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 //these are adjectives that can become comparative + superlative with out "most/more"
 //its a whitelist for conjugation
 //this data is shared between comparative/superlative methods
@@ -23646,7 +23858,7 @@ module.exports= [
   return h
 },{})
 
-},{}],65:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 //turn 'quick' into 'quickly'
 
 var main = function (str) {
@@ -23779,7 +23991,7 @@ module.exports = main;
 
 // console.log(adj_to_adv('direct'))
 
-},{}],66:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 //turn 'quick' into 'quickly'
 var convertables = require("./convertables")
 
@@ -23877,7 +24089,7 @@ var main = function (str) {
 
 module.exports = main;
 
-},{"./convertables":64}],67:[function(require,module,exports){
+},{"./convertables":66}],69:[function(require,module,exports){
 //convert cute to cuteness
 
 module.exports = function (w) {
@@ -23944,7 +24156,7 @@ module.exports = function (w) {
   return w + "ness";
 };
 
-},{}],68:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 //turn 'quick' into 'quickest'
 var convertables = require("./convertables")
 
@@ -24036,7 +24248,7 @@ module.exports = function (str) {
   return "most " + str
 }
 
-},{"./convertables":64}],69:[function(require,module,exports){
+},{"./convertables":66}],71:[function(require,module,exports){
 //wrapper for Adjective's methods
 var Adjective = function (str, sentence, word_i) {
   var the = this
@@ -24072,7 +24284,7 @@ var Adjective = function (str, sentence, word_i) {
 module.exports = Adjective;
 // console.log(new Adjective("crazy"))
 
-},{"../../data/parts_of_speech":54,"./conjugate/to_adverb":65,"./conjugate/to_comparative":66,"./conjugate/to_noun":67,"./conjugate/to_superlative":68}],70:[function(require,module,exports){
+},{"../../data/parts_of_speech":56,"./conjugate/to_adverb":67,"./conjugate/to_comparative":68,"./conjugate/to_noun":69,"./conjugate/to_superlative":70}],72:[function(require,module,exports){
 //turns 'quickly' into 'quick'
 module.exports = function (str) {
   var irregulars = {
@@ -24131,7 +24343,7 @@ module.exports = function (str) {
 // console.log(to_adjective('quickly') === 'quick')
 // console.log(to_adjective('marvelously') === 'marvelous')
 
-},{}],71:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 //wrapper for Adverb's methods
 var Adverb = function (str, sentence, word_i) {
   var the = this
@@ -24164,7 +24376,7 @@ module.exports = Adverb;
 // console.log(new Adverb("suddenly").conjugate())
 // console.log(adverbs.conjugate('powerfully'))
 
-},{"../../data/parts_of_speech":54,"./conjugate/to_adjective":70}],72:[function(require,module,exports){
+},{"../../data/parts_of_speech":56,"./conjugate/to_adjective":72}],74:[function(require,module,exports){
 //converts nouns from plural and singular, and viceversases
 //some regex borrowed from pksunkara/inflect
 //https://github.com/pksunkara/inflect/blob/master/lib/defaults.js
@@ -24476,7 +24688,7 @@ module.exports = {
 // console.log(inflect.is_plural('children')==true)
 // console.log(inflect.singularize('mayors of chicago')=="mayor of chicago")
 
-},{"../../../data/lexicon/irregular_nouns":48,"../../../data/lexicon/uncountables":51}],73:[function(require,module,exports){
+},{"../../../data/lexicon/irregular_nouns":50,"../../../data/lexicon/uncountables":53}],75:[function(require,module,exports){
 //chooses an indefinite aricle 'a/an' for a word
 module.exports = function (str) {
   if (!str) {
@@ -24552,7 +24764,7 @@ module.exports = function (str) {
 
 // console.log(indefinite_article("wolf") === "a")
 
-},{}],74:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 //wrapper for noun's methods
 var Noun = function (str, sentence, word_i) {
   var the = this
@@ -24906,7 +25118,7 @@ module.exports = Noun;
 // console.log(new Noun("illi G. Danza").pronoun()=="she")
 // console.log(new Noun("horses").pronoun()=="they")
 
-},{"../../data/lexicon/firstnames":46,"../../data/lexicon/honourifics":47,"../../data/parts_of_speech":54,"./conjugate/inflect":72,"./indefinite_article":73}],75:[function(require,module,exports){
+},{"../../data/lexicon/firstnames":48,"../../data/lexicon/honourifics":49,"../../data/parts_of_speech":56,"./conjugate/inflect":74,"./indefinite_article":75}],77:[function(require,module,exports){
 //Parents are classes for each main part of speech, with appropriate methods
 //load files if server-side, otherwise assume these are prepended already
 var Adjective = require("./adjective/index");
@@ -24938,7 +25150,7 @@ var parents = {
 
 module.exports = parents;
 
-},{"./adjective/index":69,"./adverb/index":71,"./noun/index":74,"./value/index":77,"./verb/index":84}],76:[function(require,module,exports){
+},{"./adjective/index":71,"./adverb/index":73,"./noun/index":76,"./value/index":79,"./verb/index":86}],78:[function(require,module,exports){
 // #generates properly-formatted dates from free-text date forms
 // #by spencer kelly 2014
 
@@ -25293,7 +25505,7 @@ module.exports = function (str, options) {
 // console.log(date_extractor("1998"))
 // console.log(date_extractor("1999"))
 
-},{}],77:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 //wrapper for value's methods
 var Value = function (str, sentence, word_i) {
   var the = this
@@ -25342,7 +25554,7 @@ module.exports = Value;
 // console.log(new Value("fifty five").number())
 // console.log(new Value("june 5th 1998").date())
 
-},{"../../data/parts_of_speech":54,"./date_extractor":76,"./to_number":78}],78:[function(require,module,exports){
+},{"../../data/parts_of_speech":56,"./date_extractor":78,"./to_number":80}],80:[function(require,module,exports){
 // converts spoken numbers into integers  "fifty seven point eight" -> 57.8
 //
 // Spoken numbers take the following format
@@ -25624,7 +25836,7 @@ module.exports = main;
 // console.log(to_number("a hundred"))
 // console.log(to_number("four point seven seven"))
 
-},{}],79:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 //turn a verb into its other grammatical forms.
 var verb_to_doer = require("./to_doer")
 var verb_irregulars = require("./verb_irregulars")
@@ -25816,7 +26028,7 @@ module.exports = main;
 // console.log(module.exports("had tried"))
 // console.log(module.exports("have tried"))
 
-},{"./suffix_rules":80,"./to_doer":81,"./verb_irregulars":82,"./verb_rules":83}],80:[function(require,module,exports){
+},{"./suffix_rules":82,"./to_doer":83,"./verb_irregulars":84,"./verb_rules":85}],82:[function(require,module,exports){
 //generated from test data
 var compact = {
   "gerund": [
@@ -25917,7 +26129,7 @@ for (i = 0; i < l; i++) {
 }
 module.exports = suffix_rules;
 
-},{}],81:[function(require,module,exports){
+},{}],83:[function(require,module,exports){
 //somone who does this present-tense verb
 //turn 'walk' into 'walker'
 module.exports = function (str) {
@@ -25980,7 +26192,7 @@ module.exports = function (str) {
 // console.log(verb_to_doer('sweep'))
 // console.log(verb_to_doer('watch'))
 
-},{}],82:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 var types = [
   'infinitive',
   'gerund',
@@ -26942,7 +27154,7 @@ module.exports = compact.map(function (arr) {
 
 // console.log(JSON.stringify(verb_irregulars, null, 2));
 
-},{}],83:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 // regex rules for each part of speech that convert it to all other parts of speech.
 // used in combination with the generic 'fallback' method
 var verb_rules = {
@@ -27394,7 +27606,7 @@ verb_rules=Object.keys(verb_rules).reduce(function(h,k){
 module.exports = verb_rules;
 // console.log(JSON.stringify(verb_rules, null, 2));
 
-},{}],84:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 //wrapper for verb's methods
 var Verb = function (str, sentence, word_i) {
   var the = this
@@ -27516,7 +27728,7 @@ module.exports = Verb;
 // console.log(new Verb("will"))
 // console.log(new Verb("stalking").tense)
 
-},{"../../data/parts_of_speech":54,"./conjugate/conjugate":79}],85:[function(require,module,exports){
+},{"../../data/parts_of_speech":56,"./conjugate/conjugate":81}],87:[function(require,module,exports){
 var lexicon = require("./data/lexicon")
 var values = require("./data/lexicon/values")
 
@@ -28069,7 +28281,7 @@ module.exports = main;
 
 // console.log(pos("he's fun").sentences[0].tokens[1].normalised=="is")
 
-},{"./data/lexicon":42,"./data/lexicon/values":52,"./data/parts_of_speech":54,"./data/unambiguous_suffixes":55,"./data/word_rules":56,"./methods/tokenization/tokenize":62,"./parents/parents":75,"./section":86,"./sentence":87}],86:[function(require,module,exports){
+},{"./data/lexicon":44,"./data/lexicon/values":54,"./data/parts_of_speech":56,"./data/unambiguous_suffixes":57,"./data/word_rules":58,"./methods/tokenization/tokenize":64,"./parents/parents":77,"./section":88,"./sentence":89}],88:[function(require,module,exports){
 //a section is a block of text, with an arbitrary number of sentences
 //these methods are just wrappers around the ones in sentence.js
 var Section = function(sentences) {
@@ -28180,7 +28392,7 @@ var Section = function(sentences) {
 }
 module.exports = Section;
 
-},{}],87:[function(require,module,exports){
+},{}],89:[function(require,module,exports){
 // methods that hang on a parsed set of words
 // accepts parsed tokens
 var Sentence = function(tokens) {
@@ -28447,7 +28659,7 @@ var Sentence = function(tokens) {
 
 module.exports = Sentence;
 
-},{}],88:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 //just a wrapper for text -> entities
 //most of this logic is in ./parents/noun
 var pos = require("./pos");
@@ -28483,7 +28695,7 @@ module.exports = main;
 // console.log(spot("Tony eats all day. Tony Hawk is cool.").map(function(s){return s}))
 // console.log(spot("My Hawk is cool").map(function(s){return s.normalised}))
 
-},{"./pos":85}],89:[function(require,module,exports){
+},{"./pos":87}],91:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -28518,7 +28730,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],90:[function(require,module,exports){
+},{}],92:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -28557,7 +28769,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],91:[function(require,module,exports){
+},{}],93:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -28598,7 +28810,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],92:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -28709,7 +28921,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":93,"./socket":95,"./url":96,"debug":18,"socket.io-parser":99}],93:[function(require,module,exports){
+},{"./manager":95,"./socket":97,"./url":98,"debug":20,"socket.io-parser":101}],95:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -29271,7 +29483,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":94,"./socket":95,"backo2":12,"component-bind":15,"component-emitter":97,"debug":18,"engine.io-client":20,"indexof":35,"socket.io-parser":99}],94:[function(require,module,exports){
+},{"./on":96,"./socket":97,"backo2":13,"component-bind":17,"component-emitter":99,"debug":20,"engine.io-client":22,"indexof":37,"socket.io-parser":101}],96:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -29297,7 +29509,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],95:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -29718,7 +29930,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":94,"component-bind":15,"component-emitter":97,"debug":18,"has-binary":33,"socket.io-parser":99,"to-array":105}],96:[function(require,module,exports){
+},{"./on":96,"component-bind":17,"component-emitter":99,"debug":20,"has-binary":35,"socket.io-parser":101,"to-array":107}],98:[function(require,module,exports){
 (function (global){
 
 /**
@@ -29797,9 +30009,9 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":18,"parseuri":91}],97:[function(require,module,exports){
-arguments[4][30][0].apply(exports,arguments)
-},{"dup":30}],98:[function(require,module,exports){
+},{"debug":20,"parseuri":93}],99:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"dup":32}],100:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -29944,7 +30156,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":100,"isarray":36}],99:[function(require,module,exports){
+},{"./is-buffer":102,"isarray":38}],101:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -30350,7 +30562,7 @@ function error(data){
   };
 }
 
-},{"./binary":98,"./is-buffer":100,"component-emitter":16,"debug":101,"json3":38}],100:[function(require,module,exports){
+},{"./binary":100,"./is-buffer":102,"component-emitter":18,"debug":103,"json3":40}],102:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -30367,7 +30579,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],101:[function(require,module,exports){
+},{}],103:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -30537,7 +30749,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":102}],102:[function(require,module,exports){
+},{"./debug":104}],104:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -30736,7 +30948,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":103}],103:[function(require,module,exports){
+},{"ms":105}],105:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -30863,7 +31075,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],104:[function(require,module,exports){
+},{}],106:[function(require,module,exports){
 var self = self || {};// File:src/Three.js
 
 /**
@@ -66848,7 +67060,7 @@ if (typeof exports !== 'undefined') {
   this['THREE'] = THREE;
 }
 
-},{}],105:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -66863,7 +67075,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],106:[function(require,module,exports){
+},{}],108:[function(require,module,exports){
 (function (root) {
 	"use strict";
 	var Tone;
@@ -81559,7 +81771,7 @@ function toArray(list, index) {
 		root.Tone = Tone;
 	}
 } (this));
-},{}],107:[function(require,module,exports){
+},{}],109:[function(require,module,exports){
 (function (process){
 /**
  * Tween.js - Licensed under the MIT license
@@ -82445,7 +82657,7 @@ TWEEN.Interpolation = {
 })(this);
 
 }).call(this,require('_process'))
-},{"_process":111}],108:[function(require,module,exports){
+},{"_process":2}],110:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/wtf8 v1.0.0 by @mathias */
 ;(function(root) {
@@ -82683,7 +82895,7 @@ TWEEN.Interpolation = {
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],109:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -82753,99 +82965,4 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],110:[function(require,module,exports){
-
-},{}],111:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-var queue = [];
-var draining = false;
-var currentQueue;
-var queueIndex = -1;
-
-function cleanUpNextTick() {
-    draining = false;
-    if (currentQueue.length) {
-        queue = currentQueue.concat(queue);
-    } else {
-        queueIndex = -1;
-    }
-    if (queue.length) {
-        drainQueue();
-    }
-}
-
-function drainQueue() {
-    if (draining) {
-        return;
-    }
-    var timeout = setTimeout(cleanUpNextTick);
-    draining = true;
-
-    var len = queue.length;
-    while(len) {
-        currentQueue = queue;
-        queue = [];
-        while (++queueIndex < len) {
-            if (currentQueue) {
-                currentQueue[queueIndex].run();
-            }
-        }
-        queueIndex = -1;
-        len = queue.length;
-    }
-    currentQueue = null;
-    draining = false;
-    clearTimeout(timeout);
-}
-
-process.nextTick = function (fun) {
-    var args = new Array(arguments.length - 1);
-    if (arguments.length > 1) {
-        for (var i = 1; i < arguments.length; i++) {
-            args[i - 1] = arguments[i];
-        }
-    }
-    queue.push(new Item(fun, args));
-    if (queue.length === 1 && !draining) {
-        setTimeout(drainQueue, 0);
-    }
-};
-
-// v8 likes predictible objects
-function Item(fun, array) {
-    this.fun = fun;
-    this.array = array;
-}
-Item.prototype.run = function () {
-    this.fun.apply(null, this.array);
-};
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-process.version = ''; // empty string to avoid regexp issues
-process.versions = {};
-
-function noop() {}
-
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-};
-
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-process.umask = function() { return 0; };
-
-},{}]},{},[6]);
+},{}]},{},[7]);
